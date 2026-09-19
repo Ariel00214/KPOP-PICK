@@ -41,7 +41,7 @@ export class MusicBrainzProvider implements ReleaseSourceProvider{
  async discover({query,from,to,signal}:{query?:string;from:Date;to:Date;signal:AbortSignal}){
   if(!query)return[];
   await musicBrainzRateLimit();
-  const term=`artist:${JSON.stringify(query)}`;
+  const term=`artist:${JSON.stringify(query)} AND firstreleasedate:[${from.toISOString().slice(0,10)} TO ${to.toISOString().slice(0,10)}]`;
   const url=`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(term)}&fmt=json&limit=15`;
   const response=await fetch(url,{signal,headers:{accept:"application/json","user-agent":`KPOPPick/0.1 (${process.env.SUPPORT_EMAIL||"https://www.myarea.website"})`}});
   if(!response.ok)throw new Error(`MusicBrainz ${response.status}`);const body=await response.json();
@@ -78,7 +78,7 @@ export class ReleaseDiscoveryService{
    const candidate=await this.repository.saveCandidate(first,status,items.map(item=>item.row),dates.size>1?"RELEASE_DATE_CONFLICT":undefined);
    recordServerEvent("release_candidate_found",{status:candidate.status,sourceCount:items.length});
    if(candidate.status==="VERIFIED"){await this.repository.verifyCandidate(candidate);recordServerEvent("release_candidate_verified",{candidateId:candidate.id})}
-   candidates.push(candidate);
+   if(candidate.status!=="REJECTED")candidates.push(candidate);
   }
   return{candidates,allProvidersFailed:settled.length>0&&settled.every(result=>result.status==="rejected")};
  }

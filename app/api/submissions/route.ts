@@ -2,7 +2,9 @@ import {NextResponse} from "next/server";
 import {z} from "zod";
 import {prisma} from "@/lib/prisma";
 import {recordServerEvent} from "@/lib/analytics-store";
+import {permitRequest} from "@/lib/request-limit";
 export async function POST(req:Request){
+ if(!permitRequest("submissions",15))return NextResponse.json({error:"请求较多，请稍后重试"},{status:429});
  try{
   const text=await req.text();if(text.length>3_000_000)return NextResponse.json({error:"截图过大"},{status:413});
   const body=z.object({rawContent:z.string().min(3).max(10000),extractedData:z.record(z.unknown()).nullable(),sourceType:z.enum(["MISSING_RELEASE","USER_REPORT"]).default("USER_REPORT")}).parse(JSON.parse(text));

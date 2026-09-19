@@ -6,6 +6,7 @@ import {defaultDiscoveryService} from "@/lib/release-discovery";
 import {recordServerEvent} from "@/lib/analytics-store";
 import type {Album} from "@/lib/types";
 import {prisma} from "@/lib/prisma";
+import {permitRequest} from "@/lib/request-limit";
 
 export const runtime="nodejs";
 export async function GET(req:NextRequest){
@@ -17,6 +18,7 @@ export async function GET(req:NextRequest){
  recordServerEvent("search_performed",{resultCount:data.length});
  if(data.length)return NextResponse.json({data,discovery:null});
  recordServerEvent("search_zero_result",{});
+ if(!permitRequest("discovery",30))return NextResponse.json({data:[],discovery:{candidates:[],unavailable:true}});
  try{
   const artists=await prisma.artist.findMany({where:{OR:[{name:{equals:q,mode:"insensitive"}},{aliases:{some:{normalizedAlias:normalizeAlias(q)}}}]},take:2});
   if(artists.length>1)return NextResponse.json({data:[],discovery:{candidates:[],unavailable:true}});
