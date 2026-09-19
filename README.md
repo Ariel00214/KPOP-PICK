@@ -15,7 +15,7 @@
 - 情报文字提取、用户确认、查重后保存流程；AI 不能直接发布
 - 游客本地收藏、登录用户数据库收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
 - 内存 TTL Cache、关键词知识检索、AI Provider 接口、Fallback
-- Prisma Schema、SQLite Seed、PostgreSQL 迁移说明和 Vitest 测试
+- Prisma PostgreSQL Schema、正式 Migration、幂等官方商品 Seed 和 Vitest 测试
 
 ## 架构
 
@@ -23,7 +23,7 @@
 Next.js App Router
 ├── UI：React + TypeScript + Tailwind CSS
 ├── API：Route Handlers + Zod
-├── Database：Prisma（开发 SQLite；生产可迁移 PostgreSQL）
+├── Database：Prisma + PostgreSQL
 ├── Cache：进程内 TTL Cache
 ├── RAG：/knowledge Markdown + 关键词检索
 ├── AI：AIProvider Interface；默认 RulesProvider fallback
@@ -60,7 +60,8 @@ npm run dev
 
 | 名称 | 必填 | 用途 |
 |---|---:|---|
-| `DATABASE_URL` | 是 | 开发默认 `file:./dev.db` |
+| `DATABASE_URL` | 开发/CI | PostgreSQL 连接串 |
+| `POSTGRES_DATABASE_URL` | 生产必填 | Render Postgres 内部连接串；启动时映射为 `DATABASE_URL` |
 | `NEXT_PUBLIC_APP_URL` | 是 | Web 根地址，部署时改为正式域名 |
 | `ADMIN_PASSWORD` | 是 | 管理看板服务端校验，禁止提交真实密码 |
 | `AI_PROVIDER` | 否 | 默认 `mock` / rules fallback |
@@ -73,19 +74,14 @@ npm run dev
 
 ## Database 与 Seed
 
-Schema 位于 `prisma/schema.prisma`。Seed 只幂等写入已核验的官方商品记录，不删除用户、收藏或已有目录数据。
+Schema 位于 `prisma/schema.prisma`。生产启动先执行 `prisma migrate deploy`，再运行幂等 Seed；不会删除用户、收藏或已有目录数据。
 
 ```bash
 npm run db:push
 npm run db:seed
 ```
 
-迁移 PostgreSQL 时：
-
-1. 将 `prisma/schema.prisma` 的 datasource provider 改为 `postgresql`。
-2. 将生产 `DATABASE_URL` 配置为 PostgreSQL 连接串。
-3. 本地生成并审查 migration，再在生产运行 `prisma migrate deploy`。
-4. 不要将连接串或密码提交到 GitHub。
+生产使用 Render Postgres 的 Internal Database URL，保存为 Web Service 的 `POSTGRES_DATABASE_URL`。不要把连接串或密码提交到 GitHub。
 
 ## AI Provider
 
@@ -123,7 +119,7 @@ npm run build
 
 ```env
 NEXT_PUBLIC_APP_URL=https://myarea.website
-DATABASE_URL=<生产数据库连接串>
+POSTGRES_DATABASE_URL=<Render Postgres Internal Database URL>
 ADMIN_PASSWORD=<随机强密码>
 AI_PROVIDER=mock
 ANALYTICS_ENABLED=true

@@ -7,13 +7,29 @@ services:
     env_file:
       - .env.production
     environment:
-      DATABASE_URL: file:/app/data/prod.db
+      POSTGRES_DATABASE_URL: postgresql://kpop:kpop-change-me@db:5432/kpop_pick
       NODE_ENV: production
       PORT: 3000
-    volumes:
-      - kpop_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     expose:
       - "3000"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kpop_pick
+      POSTGRES_USER: kpop
+      POSTGRES_PASSWORD: kpop-change-me
+    volumes:
+      - kpop_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kpop -d kpop_pick"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   caddy:
     image: caddy:2-alpine
@@ -30,6 +46,6 @@ services:
       - caddy_config:/config
 
 volumes:
-  kpop_data:
+  kpop_postgres:
   caddy_data:
   caddy_config:

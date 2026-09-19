@@ -19,6 +19,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
         env:
-          DATABASE_URL: file:./ci.db
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           ADMIN_PASSWORD: ci-only-password
           NEXT_PUBLIC_APP_URL: https://myarea.website
