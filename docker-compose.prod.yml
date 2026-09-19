@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: file:/app/data/prod.db
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - kpop_data:/app/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  kpop_data:
+  caddy_data:
+  caddy_config:

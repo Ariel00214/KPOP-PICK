@@ -21,6 +21,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/deploy/entrypoint.sh ./deploy/entrypoint.sh
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data && chmod +x /app/deploy/entrypoint.sh
 USER nextjs
 EXPOSE 3000
-CMD ["npm","start"]
+ENTRYPOINT ["/app/deploy/entrypoint.sh"]

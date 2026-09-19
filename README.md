@@ -131,6 +131,20 @@ CACHE_ENABLED=true
 
 部署后依次验证：`/api/health`、`/onboarding`、`/search`、`/album/bp-deadline` 和 `/admin/analytics`。域名 DNS 应指向实际云服务提供的公网 IP 或 CNAME；在获得该目标值前不要提前猜测记录。
 
+### 单机 Docker 部署
+
+服务器安装 Git 与 Docker 后执行：
+
+```bash
+git clone https://github.com/Ariel00214/KPOP-PICK.git
+cd KPOP-PICK
+cp deploy/.env.production.example .env.production
+# 编辑 .env.production，将 ADMIN_PASSWORD 改为随机强密码
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Caddy 会在域名 A 记录指向服务器且 80/443 端口开放后自动申请和续期 HTTPS 证书。SQLite 文件保存在 Docker 命名卷 `kpop_data`，重新构建容器不会删除数据。首次启动默认写入 DEMO Seed；之后不会因重启重复清空数据库。
+
 ## 当前未接入
 
 真实淘宝/微博/小红书爬虫、真实店铺库存与实时价格、真实图片 OCR/视觉模型、支付、订单、物流、微信社区、原生 App、微信小程序。MVP 使用 Seed + 用户投稿 + 人工确认验证需求。
