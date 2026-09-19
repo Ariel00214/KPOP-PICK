@@ -11,7 +11,7 @@
 - 新手首页、老手首页、搜索与空结果
 - 专辑详情、多渠道方案、预计到手价、未知费用提示、排序和成员筛选
 - 小卡列表与类型筛选
-- “AI 帮我选”结构化最多 3 个方案；无 AI 密钥时自动使用 Rules + Database 结果
+- “AI 帮我选”支持自由文本需求理解，自动提取艺人、专辑、成员、预算、随机接受度、渠道和购买优先级，再生成最多 3 个带解释的方案；无 AI 密钥时自动使用 Rules + Database 结果
 - 情报文字提取、用户确认、查重后保存流程；AI 不能直接发布
 - 本地收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
 - 内存 TTL Cache、关键词知识检索、AI Provider 接口、Fallback
@@ -88,7 +88,7 @@ npm run db:seed
 
 ## AI Provider
 
-`lib/ai.ts` 定义 `AIProvider`。当前 `RulesProvider` 确保没有外部模型时推荐和文字提取仍可运行。接入真实服务时新增 Provider，并通过环境变量选择；截图上传需要同时配置中国大陆可访问的对象存储与视觉模型。
+`lib/ai.ts` 定义 `AIProvider`。自由文本推荐支持兼容 OpenAI Chat Completions 协议的大模型；设置 `AI_PROVIDER=llm`、`AI_API_KEY`、`AI_BASE_URL` 与 `AI_MODEL` 后启用。模型只提取用户意图，不生成价格、库存等商品事实；最终推荐始终基于已有结构化数据。未配置、超时或调用失败时自动回退到本地文本理解与 Rules + Database 推荐。截图上传需要同时配置中国大陆可访问的对象存储与视觉模型。
 
 失败策略：LLM → Rules/Database；图像理解 → 手动输入；RAG → 本地知识；外链读取 → 截图/文字。
 
