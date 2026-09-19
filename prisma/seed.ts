@@ -1,18 +1,19 @@
 import{PrismaClient,OfferStatus}from"@prisma/client";
 const db=new PrismaClient();
 async function main(){
- await db.priceHistory.deleteMany();await db.purchaseOffer.deleteMany();await db.photocard.deleteMany();await db.albumVersion.deleteMany();await db.favorite.deleteMany();await db.album.deleteMany();await db.member.deleteMany();await db.group.deleteMany();await db.artist.deleteMany();await db.channel.deleteMany();await db.source.deleteMany();
- const source=await db.source.create({data:{name:"KPOP PICK DEMO",type:"DEMO"}});
- const channels=await Promise.all(["YG SELECT","Ktown4u","Weverse Shop","SMTOWN &STORE","粉丝联合吧"].map((name,i)=>db.channel.create({data:{name,platform:i===4?"粉丝站":"官方/电商",region:i<4?"韩国":"中国"}})));
- const groups=await Promise.all([["BLACKPINK","粉墨","#ffb8cf"],["aespa","aespa","#bfe6ff"],["IVE","IVE","#d9c7ff"]].map(([name,nameZh,color])=>db.group.create({data:{name,nameZh,color}})));
- const memberNames=[["Jennie","Jisoo","Rosé","Lisa"],["Karina","Winter","Giselle","Ningning"],["Wonyoung","Yujin"]];const members=[];
- for(let i=0;i<groups.length;i++)for(const name of memberNames[i])members.push(await db.member.create({data:{name,groupId:groups[i].id}}));
- const specs=[["bp-deadline","DEADLINE",0],["aespa-richman","Rich Man",1],["ive-rebel","REBEL HEART",2],["bp-bornpink","BORN PINK",0],["aespa-armageddon","Armageddon",1]] as const;let offerNo=0,cardNo=0;
- for(const[id,title,gi]of specs){
-  const album=await db.album.create({data:{id,title,titleZh:title,releaseDate:new Date("2026-10-01"),coverColor:groups[gi].color,groupId:groups[gi].id,isDemo:true}});
-  for(const vname of["写真书版","成员单封版"]){const version=await db.albumVersion.create({data:{albumId:album.id,name:vname,packageType:vname,memberVersion:vname.includes("成员")?"可选/随机待确认":null}});for(let j=0;j<2&&offerNo<15;j++){const productPrice=60+offerNo*3;await db.purchaseOffer.create({data:{albumVersionId:version.id,channelId:channels[offerNo%channels.length].id,productPrice,internationalShipping:offerNo%4===0?null:12,domesticShipping:8,serviceFee:3,otherFee:0,discount:0,estimatedLandedPrice:offerNo%4===0?null:productPrice+23,stockStatus:"预售",saleType:"预售",shippingOrigin:offerNo%2?"中国":"韩国",estimatedShippingTime:"发行后 2–4 周",deadline:new Date("2026-10-05"),memberSelectable:vname.includes("成员"),randomRule:vname.includes("成员")?"可指定成员":"成员随机",inclusions:JSON.stringify(["专辑内随机卡 ×2","预购特典卡 ×1"]),sourceId:source.id,confidence:.9,status:OfferStatus.VERIFIED,purchaseUrl:"https://example.com/demo"}});offerNo++}}
-  for(let p=0;p<4;p++)await db.photocard.create({data:{albumId:album.id,memberId:members[(cardNo+p)%members.length].id,type:p%2?"店铺特典卡":"专辑内随机卡",name:`DEMO 小卡 ${cardNo+p+1}`,isRandom:p%3!==0}});cardNo+=4;
+ const source=await db.source.upsert({where:{id:"source-weverse-official"},update:{url:"https://shop.weverse.io/"},create:{id:"source-weverse-official",name:"Weverse Shop 官方商品页",type:"OFFICIAL_STORE",url:"https://shop.weverse.io/"}});
+ const channel=await db.channel.upsert({where:{name:"Weverse Shop"},update:{platform:"官方商城",region:"全球/韩国"},create:{name:"Weverse Shop",platform:"官方商城",region:"全球/韩国"}});
+ const entries=[
+  {albumId:"enhypen-desire-unleash-make",group:"ENHYPEN",title:"DESIRE : UNLEASH (MAKE Ver.) (Weverse Exclusive)",release:"2025-06-06",color:"#cce8dd",versionId:"version-weverse-41245",version:"MAKE Ver. (Weverse Exclusive)",packageType:"CD",offerId:"weverse-41245",price:28.9,currency:"USD",stock:"页面可购买",saleType:"在售",status:OfferStatus.VERIFIED,url:"https://shop.weverse.io/es/shop/USD/artists/10/sales/41245",inclusions:[]},
+  {albumId:"babymonster-we-go-up-keyring",group:"BABYMONSTER",title:"BABYMONSTER 2nd MINI ALBUM [WE GO UP] MINI BEAM KEYRING Ver.",release:"2025-10-10",color:"#ffd5c8",versionId:"version-weverse-45542",version:"MINI BEAM KEYRING Ver.",packageType:"QR card",offerId:"weverse-45542",price:32364,currency:"KRW",stock:"售罄",saleType:"已售罄",status:OfferStatus.SOLD_OUT,url:"https://shop.weverse.io/zh-tw/shop/KRW/artists/172/sales/45542",inclusions:["MINI BEAM KEYRING ×1","SELFIE PHOTOCARDS ×6","LOGO STICKERS ×2"]}
+ ] as const;
+ for(const item of entries){
+  const group=await db.group.upsert({where:{name:item.group},update:{color:item.color},create:{name:item.group,color:item.color}});
+  await db.album.upsert({where:{id:item.albumId},update:{title:item.title,titleZh:null,releaseDate:new Date(`${item.release}T00:00:00Z`),coverColor:item.color,isDemo:false,groupId:group.id},create:{id:item.albumId,title:item.title,releaseDate:new Date(`${item.release}T00:00:00Z`),coverColor:item.color,isDemo:false,groupId:group.id}});
+  await db.albumVersion.upsert({where:{id:item.versionId},update:{name:item.version,packageType:item.packageType},create:{id:item.versionId,albumId:item.albumId,name:item.version,packageType:item.packageType}});
+  const verifiedAt=new Date("2026-09-19T00:00:00Z");
+  await db.purchaseOffer.upsert({where:{id:item.offerId},update:{productPrice:item.price,currency:item.currency,stockStatus:item.stock,saleType:item.saleType,purchaseUrl:item.url,status:item.status,lastVerifiedAt:verifiedAt,inclusions:JSON.stringify(item.inclusions)},create:{id:item.offerId,albumVersionId:item.versionId,channelId:channel.id,productPrice:item.price,currency:item.currency,stockStatus:item.stock,saleType:item.saleType,shippingOrigin:"韩国",estimatedShippingTime:item.status===OfferStatus.SOLD_OUT?"不可购买":"登录渠道后确认",memberSelectable:false,randomRule:"以官方商品详情为准",inclusions:JSON.stringify(item.inclusions),purchaseUrl:item.url,sourceId:source.id,confidence:1,status:item.status,lastVerifiedAt:verifiedAt}});
  }
- console.log(`Seeded DEMO: ${groups.length} groups, ${members.length} members, ${specs.length} albums, ${offerNo} offers, ${cardNo} photocards.`)
+ console.log(`Catalog ready: ${entries.length} verified official products.`)
 }
 main().finally(()=>db.$disconnect());

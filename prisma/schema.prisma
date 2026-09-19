@@ -31,11 +31,33 @@ enum SubmissionStatus {
 model User {
   id String @id @default(cuid())
   anonymousId String @unique
+  displayName String?
   mode UserMode?
   interests String @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   favorites Favorite[]
+  sessions Session[]
+  account Account?
+}
+
+model Account {
+  email String @id
+  passwordHash String
+  userId String @unique
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  userId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Group {

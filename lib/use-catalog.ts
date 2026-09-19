@@ -1,0 +1,2 @@
+"use client";import{useEffect,useState}from"react";import{albums as fallback}from"./data";import type{Album}from"./types";
+export function useCatalog(){const[albums,setAlbums]=useState<Album[]>(fallback);useEffect(()=>{const controller=new AbortController();fetch("/api/albums",{signal:controller.signal}).then(r=>r.ok?r.json():Promise.reject()).then(({data})=>Array.isArray(data)&&setAlbums(data)).catch(()=>{});return()=>controller.abort()},[]);return albums}

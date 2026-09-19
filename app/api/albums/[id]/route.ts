@@ -1,2 +1,2 @@
-import{NextResponse}from"next/server";import{albums}from"@/lib/data";import{cache}from"@/lib/cache";
-export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const{id}=await params;const key=`album:${id}`;let data=cache.get<(typeof albums)[number]>(key);if(!data){data=albums.find(a=>a.id===id);if(data)cache.set(key,data,5*60_000)}return data?NextResponse.json({data}):NextResponse.json({error:"NOT_FOUND"},{status:404})}
+import{NextResponse}from"next/server";import{getAlbum}from"@/lib/catalog";import{cache}from"@/lib/cache";import type{Album}from"@/lib/types";
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const{id}=await params;const key=`album:${id}`;let data=cache.get<Album>(key);if(!data){data=await getAlbum(id);if(data)cache.set(key,data,5*60_000)}return data?NextResponse.json({data}):NextResponse.json({error:"NOT_FOUND"},{status:404})}

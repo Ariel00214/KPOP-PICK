@@ -1,2 +1,2 @@
-import Link from "next/link";import type {Album} from "@/lib/types";
-export function AlbumCard({album}:{album:Album}){return <Link className="album-card card" href={`/album/${album.id}`}><div className="cover" style={{background:album.accent}}>{album.cover}</div><h3>{album.artist}</h3><p>{album.title}</p><p className="price">{album.lowestPrice?`¥${album.lowestPrice} 起`:"暂无可靠价格"}</p></Link>}
+import Link from "next/link";import type {Album} from "@/lib/types";import{formatMoney}from"@/lib/money";
+export function AlbumCard({album}:{album:Album}){const currency=album.offers.find(o=>o.status!=="SOLD_OUT"&&o.status!=="ENDED")?.currency||album.offers[0]?.currency;return <Link className="album-card card" href={`/album/${album.id}`}><div className="cover" style={{background:album.accent}}>{album.cover}</div><h3>{album.artist}</h3><p>{album.title}</p><p className="price">{album.lowestPrice!==null?`${formatMoney(album.lowestPrice,currency)} 起`:"暂无在售价格"}</p></Link>}

@@ -48,7 +48,7 @@ export function parsePurchaseIntent(input:string):PurchaseIntent {
   const lower = normalized.toLowerCase();
   const album = albums.find(item =>
     lower.includes(item.title.toLowerCase()) ||
-    lower.includes(item.titleZh.toLowerCase()) ||
+    (item.titleZh.length>0&&lower.includes(item.titleZh.toLowerCase())) ||
     lower.includes(item.artist.toLowerCase())
   );
   const member = allMembers.find(item => lower.includes(item.toLowerCase())) ?? null;
@@ -75,7 +75,7 @@ function findAlbumByOffer(offer:Offer) {
 
 function reasonFor(offer:Offer,intent:PurchaseIntent) {
   const reasons:string[] = [];
-  if (intent.budget && offer.estimatedLandedPrice !== null && offer.estimatedLandedPrice <= intent.budget) reasons.push(`预计到手价在 ¥${intent.budget} 预算内`);
+  if (intent.budget && offer.currency==="CNY" && offer.estimatedLandedPrice !== null && offer.estimatedLandedPrice <= intent.budget) reasons.push(`预计到手价在 ¥${intent.budget} 预算内`);
   if (intent.member && offer.memberSelectable) reasons.push(`支持指定成员，更贴合你想要 ${intent.member} 的需求`);
   else if (intent.avoidRandom && offer.memberSelectable) reasons.push("支持指定成员，可降低随机风险");
   if (intent.domesticOnly && offer.origin === "国内") reasons.push("国内渠道，购买流程更直接");
@@ -96,7 +96,7 @@ export function recommendFromIntent(intent:PurchaseIntent, provider:TextRecommen
 
   const memberSafe = candidates.filter(offer => !intent.avoidRandom || offer.memberSelectable);
   if (memberSafe.length) candidates = memberSafe;
-  const withinBudget = candidates.filter(offer => !intent.budget || (offer.estimatedLandedPrice !== null && offer.estimatedLandedPrice <= intent.budget));
+  const withinBudget = candidates.filter(offer => !intent.budget || (offer.currency==="CNY"&&offer.estimatedLandedPrice !== null && offer.estimatedLandedPrice <= intent.budget));
   const usedBudgetFallback = Boolean(intent.budget && !withinBudget.length);
   if (withinBudget.length) candidates = withinBudget;
 

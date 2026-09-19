@@ -2,18 +2,18 @@
 
 面向中国大陆 K-pop 用户的移动优先 Web MVP：聚合专辑版本、小卡、特典、渠道和费用，以结构化比价与按需 AI 购买建议帮助用户决定“这次回归怎么买”。产品本身不支付、不收款、不处理订单、物流或售后。
 
-> 仓库内价格、库存、日期、封面与 Analytics 均为明确标记的 **DEMO 数据**，不能当作真实购买信息。
+> 商品目录采用“数据库优先、官方来源兜底”。价格保留渠道原币种并显示最近核验时间；税费、运费和最终库存仍须在跳转后的渠道页面复核。
 
 ## 已实现
 
-- 首次启动选择新手 / 老手，不强制注册；随时切换模式
+- 游客可直接使用；支持邮箱密码注册、登录、HttpOnly 会话与跨设备收藏
 - 兴趣选择与个性化入口
 - 新手首页、老手首页、搜索与空结果
 - 专辑详情、多渠道方案、预计到手价、未知费用提示、排序和成员筛选
 - 小卡列表与类型筛选
 - “AI 帮我选”支持自由文本需求理解，自动提取艺人、专辑、成员、预算、随机接受度、渠道和购买优先级，再生成最多 3 个带解释的方案；无 AI 密钥时自动使用 Rules + Database 结果
 - 情报文字提取、用户确认、查重后保存流程；AI 不能直接发布
-- 本地收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
+- 游客本地收藏、登录用户数据库收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
 - 内存 TTL Cache、关键词知识检索、AI Provider 接口、Fallback
 - Prisma Schema、SQLite Seed、PostgreSQL 迁移说明和 Vitest 测试
 
@@ -69,10 +69,11 @@ npm run dev
 | `AI_MODEL` | 否 | 模型名称 |
 | `CACHE_ENABLED` | 否 | 是否启用内存缓存 |
 | `ANALYTICS_ENABLED` | 否 | 是否启用匿名埋点 |
+| `SUPPORT_EMAIL` | 是 | 隐私请求与运营联系邮箱 |
 
 ## Database 与 Seed
 
-Schema 位于 `prisma/schema.prisma`。Seed 会生成至少 3 个组合、10 位成员、5 张专辑、15 个购买方案和 20 张小卡。
+Schema 位于 `prisma/schema.prisma`。Seed 只幂等写入已核验的官方商品记录，不删除用户、收藏或已有目录数据。
 
 ```bash
 npm run db:push
@@ -129,7 +130,7 @@ ANALYTICS_ENABLED=true
 CACHE_ENABLED=true
 ```
 
-部署后依次验证：`/api/health`、`/onboarding`、`/search`、`/album/bp-deadline` 和 `/admin/analytics`。域名 DNS 应指向实际云服务提供的公网 IP 或 CNAME；在获得该目标值前不要提前猜测记录。
+部署后依次验证：`/api/health`、`/onboarding`、`/search`、`/login`、`/album/enhypen-desire-unleash-make` 和 `/admin/analytics`。
 
 ### 单机 Docker 部署
 
@@ -143,8 +144,8 @@ cp deploy/.env.production.example .env.production
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Caddy 会在域名 A 记录指向服务器且 80/443 端口开放后自动申请和续期 HTTPS 证书。SQLite 文件保存在 Docker 命名卷 `kpop_data`，重新构建容器不会删除数据。首次启动默认写入 DEMO Seed；之后不会因重启重复清空数据库。
+Caddy 会在域名 A 记录指向服务器且 80/443 端口开放后自动申请和续期 HTTPS 证书。SQLite 文件保存在 Docker 命名卷 `kpop_data`，重新构建容器不会删除数据。每次启动会幂等更新内置官方商品，不会清空账号、收藏或目录。
 
 ## 当前未接入
 
-真实淘宝/微博/小红书爬虫、真实店铺库存与实时价格、真实图片 OCR/视觉模型、支付、订单、物流、微信社区、原生 App、微信小程序。MVP 使用 Seed + 用户投稿 + 人工确认验证需求。
+淘宝/微博/小红书自动抓取、渠道实时库存 API、自动汇率/跨境到手价、邮件找回密码、邮箱验证、真实图片 OCR/视觉模型、支付、订单、物流、微信社区、原生 App、微信小程序。当前真实目录使用官方商品页核验 + 人工维护。
