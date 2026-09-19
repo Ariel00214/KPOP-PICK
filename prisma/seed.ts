@@ -1,4 +1,4 @@
-import{PrismaClient,OfferStatus}from"@prisma/client";
+import{PrismaClient,OfferStatus,ArtistAliasType}from"@prisma/client";
 const db=new PrismaClient();
 async function main(){
  const source=await db.source.upsert({where:{id:"source-weverse-official"},update:{url:"https://shop.weverse.io/"},create:{id:"source-weverse-official",name:"Weverse Shop 官方商品页",type:"OFFICIAL_STORE",url:"https://shop.weverse.io/"}});
@@ -14,6 +14,13 @@ async function main(){
   const verifiedAt=new Date("2026-09-19T00:00:00Z");
   await db.purchaseOffer.upsert({where:{id:item.offerId},update:{productPrice:item.price,currency:item.currency,stockStatus:item.stock,saleType:item.saleType,purchaseUrl:item.url,status:item.status,lastVerifiedAt:verifiedAt,inclusions:JSON.stringify(item.inclusions)},create:{id:item.offerId,albumVersionId:item.versionId,channelId:channel.id,productPrice:item.price,currency:item.currency,stockStatus:item.stock,saleType:item.saleType,shippingOrigin:"韩国",estimatedShippingTime:item.status===OfferStatus.SOLD_OUT?"不可购买":"登录渠道后确认",memberSelectable:false,randomRule:"以官方商品详情为准",inclusions:JSON.stringify(item.inclusions),purchaseUrl:item.url,sourceId:source.id,confidence:1,status:item.status,lastVerifiedAt:verifiedAt}});
  }
+ const yesung=await db.artist.upsert({where:{name:"YESUNG"},update:{},create:{name:"YESUNG",nameZh:"艺声"}});
+ const aliases:[string,string,ArtistAliasType][]=[
+  ["YESUNG","en",ArtistAliasType.STAGE_NAME],["Yesung","en",ArtistAliasType.COMMON_ALIAS],["예성","ko",ArtistAliasType.KOREAN_NAME],
+  ["艺声","zh-CN",ArtistAliasType.CHINESE_NAME],["金钟云","zh-CN",ArtistAliasType.REAL_NAME],["金鐘雲","zh-TW",ArtistAliasType.REAL_NAME],
+  ["SUPER JUNIOR YESUNG","en",ArtistAliasType.GROUP_RELATED],["SJ艺声","zh-CN",ArtistAliasType.GROUP_RELATED]
+ ];
+ for(const[alias,language,aliasType]of aliases)await db.artistAlias.upsert({where:{artistId_normalizedAlias:{artistId:yesung.id,normalizedAlias:alias.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu,"")}},update:{alias,language,aliasType},create:{artistId:yesung.id,alias,language,aliasType,normalizedAlias:alias.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu,"")}});
  console.log(`Catalog ready: ${entries.length} verified official products.`)
 }
 main().finally(()=>db.$disconnect());

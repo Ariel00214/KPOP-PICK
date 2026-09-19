@@ -28,6 +28,23 @@ enum SubmissionStatus {
   REJECTED
 }
 
+enum ArtistAliasType {
+  STAGE_NAME
+  REAL_NAME
+  CHINESE_NAME
+  KOREAN_NAME
+  ENGLISH_NAME
+  GROUP_RELATED
+  COMMON_ALIAS
+}
+
+enum ReleaseCandidateStatus {
+  DISCOVERED
+  VERIFIED
+  REJECTED
+  NEEDS_REVIEW
+}
+
 model User {
   id String @id @default(cuid())
   anonymousId String @unique
@@ -74,6 +91,19 @@ model Artist {
   name String @unique
   nameZh String?
   albums Album[]
+  aliases ArtistAlias[]
+}
+
+model ArtistAlias {
+  id String @id @default(cuid())
+  artistId String
+  alias String
+  language String?
+  aliasType ArtistAliasType
+  normalizedAlias String
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  @@unique([artistId, normalizedAlias])
+  @@index([normalizedAlias])
 }
 
 model Member {
@@ -222,4 +252,29 @@ model SystemMetric {
   metadata String @default("{}")
   createdAt DateTime @default(now())
   @@index([metricName, createdAt])
+}
+
+model ReleaseCandidate {
+  id String @id @default(cuid())
+  artistName String
+  artistAliases String @default("[]")
+  albumName String
+  normalizedArtist String
+  normalizedAlbum String
+  releaseDate DateTime
+  releaseType String
+  preorderStarted Boolean?
+  sourceName String
+  sourceUrl String
+  sourcePublishedAt DateTime?
+  confidence Float
+  evidence String @default("[]")
+  status ReleaseCandidateStatus @default(DISCOVERED)
+  conflictReason String?
+  verifiedAlbumId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([normalizedArtist, normalizedAlbum, releaseDate, sourceUrl])
+  @@index([normalizedArtist, normalizedAlbum])
+  @@index([status, releaseDate])
 }
