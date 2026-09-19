@@ -71,6 +71,12 @@ npm run dev
 | `CACHE_ENABLED` | 否 | 是否启用内存缓存 |
 | `ANALYTICS_ENABLED` | 否 | 是否启用匿名埋点 |
 | `SUPPORT_EMAIL` | 是 | 隐私请求与运营联系邮箱 |
+| `RELEASE_DISCOVERY_INTERVAL` | 否 | 回归发现周期，默认 `6h`，支持 `m/h/d` |
+| `RELEASE_DISCOVERY_ENABLED` | 否 | 是否启动后台发现，默认开启 |
+| `RELEASE_DISCOVERY_FEED_URL` | 否 | 授权/公开发行 JSON Feed，可与内置 Provider 并行 |
+| `DISCOVERY_CRON_SECRET` | 否 | 外部定时任务调用 `/api/discovery/run` 的 Bearer 密钥 |
+
+回归发现仅在后台定时任务或搜索零结果时启动。`RELEASE_DISCOVERY_FEED_URL` 应返回 JSON 数组，每项包含 `artistName`、`artistAliases`、`albumName`、`releaseDate`、`releaseType`、`sourceUrl`、`sourceName`、`sourcePublishedAt` 与 `confidence`。单一来源只进入核实队列；两个独立可信 Provider 的发行日期一致时才自动核实入库。
 
 ## Database 与 Seed
 
