@@ -1,0 +1,2 @@
+import{NextRequest,NextResponse}from"next/server";import{albums}from"@/lib/data";import{cache}from"@/lib/cache";
+export async function GET(req:NextRequest){const q=req.nextUrl.searchParams.get("q")?.toLowerCase()||"";const key=`albums:${q}`;let data=cache.get<typeof albums>(key);if(!data){data=albums.filter(a=>`${a.artist} ${a.title} ${a.titleZh}`.toLowerCase().includes(q));cache.set(key,data,10*60_000)}return NextResponse.json({data,cache:cache.stats()})}

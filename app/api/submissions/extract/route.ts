@@ -1,0 +1,2 @@
+import{NextResponse}from"next/server";import{z}from"zod";import{aiProvider}from"@/lib/ai";
+export async function POST(req:Request){try{const{content}=z.object({content:z.string().min(3).max(10000)}).parse(await req.json());return NextResponse.json({data:await aiProvider.extract(content),requiresConfirmation:true})}catch{return NextResponse.json({error:"暂时没能完整识别这段内容。",fallback:["重新粘贴","手动填写"]},{status:400})}}

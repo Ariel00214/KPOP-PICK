@@ -1,0 +1,2 @@
+import{NextRequest,NextResponse}from"next/server";import{summarize}from"@/lib/analytics-store";import{cache}from"@/lib/cache";
+export async function GET(req:NextRequest){if(req.cookies.get("kpop_admin")?.value!=="1")return NextResponse.json({error:"UNAUTHORIZED"},{status:401});return NextResponse.json({...summarize(),cache:cache.stats(),system:{apiAverageMs:null,databaseAverageMs:null,ragInvocations:0,llmInvocations:0,llmFailures:0,fallbackTriggers:0,aiCost:null}})}

@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserMode {
+  BEGINNER
+  EXPERT
+}
+
+enum OfferStatus {
+  VERIFIED
+  USER_SUBMITTED
+  STALE
+  CONFLICT
+  SOLD_OUT
+  ENDED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  CONFIRMED
+  DUPLICATE
+  REJECTED
+}
+
+model User {
+  id String @id @default(cuid())
+  anonymousId String @unique
+  mode UserMode?
+  interests String @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  favorites Favorite[]
+}
+
+model Group {
+  id String @id @default(cuid())
+  name String @unique
+  nameZh String?
+  color String @default("#111111")
+  members Member[]
+  albums Album[]
+}
+
+model Artist {
+  id String @id @default(cuid())
+  name String @unique
+  nameZh String?
+  albums Album[]
+}
+
+model Member {
+  id String @id @default(cuid())
+  name String
+  nameZh String?
+  groupId String
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  photocards Photocard[]
+  @@unique([name, groupId])
+}
+
+model Album {
+  id String @id
+  title String
+  titleZh String?
+  releaseDate DateTime
+  coverColor String @default("#d8f4df")
+  isDemo Boolean @default(true)
+  groupId String?
+  artistId String?
+  group Group? @relation(fields: [groupId], references: [id])
+  artist Artist? @relation(fields: [artistId], references: [id])
+  versions AlbumVersion[]
+  photocards Photocard[]
+  favorites Favorite[]
+}
+
+model AlbumVersion {
+  id String @id @default(cuid())
+  albumId String
+  name String
+  packageType String
+  memberVersion String?
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  offers PurchaseOffer[]
+}
+
+model Photocard {
+  id String @id @default(cuid())
+  albumId String
+  memberId String?
+  type String
+  name String
+  isRandom Boolean @default(true)
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  member Member? @relation(fields: [memberId], references: [id])
+}
+
+model Channel {
+  id String @id @default(cuid())
+  name String @unique
+  platform String
+  region String
+  offers PurchaseOffer[]
+}
+
+model Source {
+  id String @id @default(cuid())
+  name String
+  type String
+  url String?
+  createdAt DateTime @default(now())
+  offers PurchaseOffer[]
+}
+
+model PurchaseOffer {
+  id String @id @default(cuid())
+  albumVersionId String
+  channelId String
+  productPrice Float
+  internationalShipping Float?
+  domesticShipping Float?
+  serviceFee Float?
+  otherFee Float?
+  discount Float @default(0)
+  estimatedLandedPrice Float?
+  currency String @default("CNY")
+  stockStatus String
+  saleType String
+  shippingOrigin String
+  estimatedShippingTime String?
+  deadline DateTime?
+  memberSelectable Boolean @default(false)
+  randomRule String?
+  inclusions String @default("[]")
+  purchaseUrl String?
+  sourceId String
+  confidence Float @default(0.8)
+  status OfferStatus @default(USER_SUBMITTED)
+  lastVerifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  albumVersion AlbumVersion @relation(fields: [albumVersionId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id])
+  source Source @relation(fields: [sourceId], references: [id])
+  priceHistory PriceHistory[]
+}
+
+model PriceHistory {
+  id String @id @default(cuid())
+  offerId String
+  price Float
+  recordedAt DateTime @default(now())
+  offer PurchaseOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+}
+
+model Submission {
+  id String @id @default(cuid())
+  anonymousUserId String
+  sourceType String
+  rawContent String
+  extractedData String?
+  status SubmissionStatus @default(DRAFT)
+  duplicateOfId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Favorite {
+  id String @id @default(cuid())
+  userId String
+  albumId String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  @@unique([userId, albumId])
+}
+
+model AnalyticsEvent {
+  id String @id @default(cuid())
+  anonymousUserId String
+  sessionId String
+  eventName String
+  properties String @default("{}")
+  createdAt DateTime @default(now())
+  @@index([eventName, createdAt])
+  @@index([anonymousUserId, createdAt])
+}
+
+model SystemMetric {
+  id String @id @default(cuid())
+  metricName String
+  value Float
+  unit String
+  metadata String @default("{}")
+  createdAt DateTime @default(now())
+  @@index([metricName, createdAt])
+}

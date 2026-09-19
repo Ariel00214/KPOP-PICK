@@ -1,0 +1,2 @@
+import{describe,it,expect,vi}from"vitest";import{cache}from"@/lib/cache";
+describe("缓存",()=>{it("支持 hit、miss 与主动失效",()=>{expect(cache.get("test:a")).toBeUndefined();cache.set("test:a",{ok:true},1000);expect(cache.get<{ok:boolean}>("test:a")?.ok).toBe(true);cache.invalidate("test:");expect(cache.get("test:a")).toBeUndefined()});it("TTL 到期后回源",()=>{vi.useFakeTimers();cache.set("ttl",1,10);vi.advanceTimersByTime(11);expect(cache.get("ttl")).toBeUndefined();vi.useRealTimers()})});

@@ -1,0 +1,3 @@
+"use client";
+import {useEffect}from"react";
+export function Track({eventName,properties={}}:{eventName:string;properties?:Record<string,unknown>}){useEffect(()=>{const id=localStorage.getItem("kpop-aid")||crypto.randomUUID();localStorage.setItem("kpop-aid",id);const session=sessionStorage.getItem("kpop-session")||crypto.randomUUID();sessionStorage.setItem("kpop-session",session);fetch("/api/analytics",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({anonymousUserId:id,sessionId:session,eventName,properties})}).catch(()=>{})},[eventName]);return null}

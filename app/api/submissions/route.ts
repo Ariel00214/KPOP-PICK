@@ -1,0 +1,3 @@
+import{NextResponse}from"next/server";import{z}from"zod";
+const records:{id:string;rawContent:string;extractedData:unknown}[]=[];
+export async function POST(req:Request){try{const body=z.object({rawContent:z.string().min(3),extractedData:z.record(z.unknown()).nullable()}).parse(await req.json());const duplicate=records.find(r=>r.rawContent.trim()===body.rawContent.trim());if(duplicate)return NextResponse.json({status:"DUPLICATE",duplicateOfId:duplicate.id});const record={id:crypto.randomUUID(),...body};records.push(record);return NextResponse.json({status:"CONFIRMED",id:record.id},{status:201})}catch{return NextResponse.json({error:"INVALID_SUBMISSION"},{status:400})}}

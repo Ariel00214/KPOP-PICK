@@ -1,0 +1,3 @@
+import{describe,it,expect}from"vitest";import{calculateLandedPrice,recommendOffers}from"@/lib/pricing";import{albums}from"@/lib/data";
+describe("到手价",()=>{it("合计所有已知费用并减优惠",()=>{expect(calculateLandedPrice({productPrice:100,internationalShipping:20,domesticShipping:8,serviceFee:3,otherFee:1,discount:10})).toBe(122)});it("任一费用未知时不猜价格",()=>{expect(calculateLandedPrice({productPrice:100,internationalShipping:null,domesticShipping:8,serviceFee:3,otherFee:0,discount:0})).toBeNull()})});
+describe("推荐",()=>{it("最多返回3个方案",()=>expect(recommendOffers(albums.flatMap(a=>a.offers),500,false,"price").length).toBeLessThanOrEqual(3));it("可排除随机成员方案",()=>expect(recommendOffers(albums.flatMap(a=>a.offers),500,true,"price").every(x=>x.memberSelectable)).toBe(true))});
