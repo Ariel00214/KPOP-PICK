@@ -15,6 +15,8 @@ enum UserMode {
 enum OfferStatus {
   VERIFIED
   USER_SUBMITTED
+  PENDING_EXCEPTION
+  IGNORED
   STALE
   CONFLICT
   SOLD_OUT
@@ -139,6 +141,9 @@ model Album {
   coverColor String @default("#d8f4df")
   coverImageUrl String?
   isDemo Boolean @default(true)
+  sourceName String?
+  sourceUrl String?
+  sourceUpdatedAt DateTime?
   groupId String?
   artistId String?
   group Group? @relation(fields: [groupId], references: [id])
@@ -182,6 +187,8 @@ model Source {
   name String
   type String
   url String?
+  trustLevel String @default("UNKNOWN")
+  active Boolean @default(true)
   createdAt DateTime @default(now())
   offers PurchaseOffer[]
 }
@@ -208,6 +215,9 @@ model PurchaseOffer {
   inclusions String @default("[]")
   purchaseUrl String?
   sourceId String
+  fingerprint String @unique
+  evidence String @default("{}")
+  expiresAt DateTime?
   confidence Float @default(0.8)
   status OfferStatus @default(USER_SUBMITTED)
   lastVerifiedAt DateTime?
@@ -217,6 +227,20 @@ model PurchaseOffer {
   channel Channel @relation(fields: [channelId], references: [id])
   source Source @relation(fields: [sourceId], references: [id])
   priceHistory PriceHistory[]
+  exception OfferException?
+}
+
+model OfferException {
+  id String @id @default(cuid())
+  offerId String? @unique
+  reason String
+  rawPayload String
+  status String @default("OPEN")
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  offer PurchaseOffer? @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
 }
 
 model PriceHistory {
