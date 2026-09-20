@@ -1,5 +1,5 @@
 export type Mode = "beginner" | "expert";
-export type OfferStatus = "VERIFIED" | "USER_SUBMITTED" | "STALE" | "CONFLICT" | "SOLD_OUT" | "ENDED";
+export type OfferStatus = "VERIFIED" | "USER_SUBMITTED" | "PENDING_EXCEPTION" | "IGNORED" | "STALE" | "CONFLICT" | "SOLD_OUT" | "ENDED";
 
 export interface Offer {
   id: string; channel: string; platform: string; version: string; packageType: string;
@@ -15,4 +15,5 @@ export interface Album {
   id: string; artist: string; title: string; titleZh: string; releaseDate: string;
   cover: string; coverImageUrl: string | null; accent: string; lowestPrice: number | null; channelCount: number;
   benefitCount: number; deadline: string; change: number; offers: Offer[]; isDemo: boolean;
+  sourceName?: string | null; sourceUrl?: string | null; sourceUpdatedAt?: string | null;
 }
