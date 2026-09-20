@@ -12,7 +12,8 @@
 - 专辑详情、多渠道方案、预计到手价、未知费用提示、排序和成员筛选
 - 小卡列表与类型筛选
 - “AI 帮我选”支持自由文本需求理解，自动提取艺人、专辑、成员、预算、随机接受度、渠道和购买优先级，再生成最多 3 个带解释的方案；无 AI 密钥时自动使用 Rules + Database 结果
-- 情报文字提取、用户确认、查重后保存流程；AI 不能直接发布
+- K-Pop Calendar 结构化同步、购买 Offer 统一入库、可信来源自动更新与异常队列
+- 用户可从专辑页提交购买链接、文字或截图；changedetection.io 回调复用同一 Offer Pipeline
 - 游客本地收藏、登录用户数据库收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
 - 内存 TTL Cache、关键词知识检索、AI Provider 接口、Fallback
 - Prisma PostgreSQL Schema、正式 Migration、幂等官方商品 Seed 和 Vitest 测试
@@ -25,8 +26,8 @@ Next.js App Router
 ├── API：Route Handlers + Zod
 ├── Database：Prisma + PostgreSQL
 ├── Cache：进程内 TTL Cache
-├── RAG：/knowledge Markdown + 关键词检索
-├── AI：AIProvider Interface；默认 RulesProvider fallback
+├── Knowledge：已有静态购买知识（本轮不新增 RAG）
+├── AI：仅做非结构化字段提取；默认 RulesProvider fallback
 └── Analytics：匿名事件，写入失败不阻塞产品
 ```
 
@@ -36,11 +37,10 @@ Next.js App Router
 |---|---|---|
 | Database | 专辑、版本、小卡、渠道、价格、状态、投稿等长期事实 | 生成解释 |
 | Cache | 热门、搜索、聚合、比价结果的短期加速 | 事实源 |
-| RAG | 术语、版本、买专和安全知识 | 价格、库存、截止日期 |
 | AI | 非结构化信息理解与复杂推荐 | 普通浏览、搜索、计算 |
 | Analytics | 匿名行为与系统运行指标 | 收集姓名、手机、地址等无关隐私 |
 
-请求顺序遵循：Rules → Cache → Database → RAG（必要时）→ LLM（必要时）。
+回归信息通过结构化日历同步；购买信息统一进入 Offer Pipeline。changedetection 只负责发现页面变化，主站负责提取、去重、可信度判断和发布。可信来源的正常 Offer 自动发布，未知来源、异常价格、低置信度和无法匹配专辑的数据进入 `/admin/offers`，管理员只处理例外。监控 Worker 独立放在 VPS，宕机不影响主站已有数据。
 
 ## 本地运行
 
@@ -75,6 +75,11 @@ npm run dev
 | `RELEASE_DISCOVERY_ENABLED` | 否 | 是否启动后台发现，默认开启 |
 | `RELEASE_DISCOVERY_FEED_URL` | 否 | 授权/公开发行 JSON Feed，可与内置 Provider 并行 |
 | `DISCOVERY_CRON_SECRET` | 否 | 外部定时任务调用 `/api/discovery/run` 的 Bearer 密钥 |
+| `KPOP_CALENDAR_URL` | 生产必填 | K-Pop Calendar 的结构化 JSON Feed URL |
+| `KPOP_CALENDAR_TIMEOUT_MS` | 否 | 日历请求超时，默认 8000ms |
+| `CALENDAR_CRON_SECRET` | 生产必填 | `/api/calendar/sync` 的 Bearer 密钥，可复用 discovery secret |
+| `CHANGEDETECTION_WEBHOOK_SECRET` | 生产必填 | changedetection 回调签名密钥 |
+| `TRUSTED_OFFER_HOSTS` | 否 | 额外可信购买域名，英文逗号分隔 |
 
 回归发现仅在后台定时任务或搜索零结果时启动。`RELEASE_DISCOVERY_FEED_URL` 应返回 JSON 数组，每项包含 `artistName`、`artistAliases`、`albumName`、`releaseDate`、`releaseType`、`sourceUrl`、`sourceName`、`sourcePublishedAt` 与 `confidence`。单一来源只进入核实队列；两个独立可信 Provider 的发行日期一致时才自动核实入库。
 
