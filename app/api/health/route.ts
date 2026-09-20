@@ -1,2 +1,2 @@
-import{NextResponse}from"next/server";
-export async function GET(){return NextResponse.json({status:"ok",service:"kpop-pick",timestamp:new Date().toISOString()},{headers:{"cache-control":"no-store"}})}
+import{NextResponse}from"next/server";import{prisma}from"@/lib/prisma";
+export async function GET(){const names=["kpop_calendar_sync","offer_ingestion"];const metrics=await Promise.all(names.map(metricName=>prisma.systemMetric.findFirst({where:{metricName},orderBy:{createdAt:"desc"}}).catch(()=>null)));return NextResponse.json({status:"ok",service:"kpop-pick",timestamp:new Date().toISOString(),checks:{calendar:metrics[0]?{ok:metrics[0].value===1,lastUpdate:metrics[0].createdAt}:null,offerPipeline:metrics[1]?{ok:metrics[1].value===1,lastUpdate:metrics[1].createdAt}:null,ai:process.env.AI_PROVIDER==="llm"&&Boolean(process.env.AI_API_KEY)?"configured":"rules-fallback"}},{headers:{"cache-control":"no-store"}})}
