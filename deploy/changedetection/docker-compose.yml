@@ -1,0 +1,20 @@
+services:
+  changedetection:
+    image: dgtlmoon/changedetection.io:latest
+    restart: unless-stopped
+    environment:
+      - PLAYWRIGHT_DRIVER_URL=ws://browser-sockpuppet-chrome:3000
+      - BASE_URL=${CHANGEDETECTION_BASE_URL}
+    volumes:
+      - changedetection-data:/datastore
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      - browser-sockpuppet-chrome
+  browser-sockpuppet-chrome:
+    image: dgtlmoon/sockpuppetbrowser:latest
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+volumes:
+  changedetection-data:
