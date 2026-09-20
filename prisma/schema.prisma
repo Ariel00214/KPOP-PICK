@@ -122,6 +122,7 @@ model Album {
   titleZh String?
   releaseDate DateTime
   coverColor String @default("#d8f4df")
+  coverImageUrl String?
   isDemo Boolean @default(true)
   groupId String?
   artistId String?
@@ -266,6 +267,7 @@ model ReleaseCandidate {
   preorderStarted Boolean?
   sourceName String
   sourceUrl String
+  coverImageUrl String?
   sourcePublishedAt DateTime?
   confidence Float
   evidence String @default("[]")

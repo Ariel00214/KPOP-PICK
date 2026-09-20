@@ -13,6 +13,6 @@ export interface Offer {
 
 export interface Album {
   id: string; artist: string; title: string; titleZh: string; releaseDate: string;
-  cover: string; accent: string; lowestPrice: number | null; channelCount: number;
+  cover: string; coverImageUrl: string | null; accent: string; lowestPrice: number | null; channelCount: number;
   benefitCount: number; deadline: string; change: number; offers: Offer[]; isDemo: boolean;
 }
