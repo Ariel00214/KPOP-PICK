@@ -6,7 +6,8 @@ import {recordServerEvent} from "./analytics-store";
 
 export type DiscoveredRelease={
  artistName:string;artistAliases:string[];albumName:string;releaseDate:string;releaseType:string;
- sourceUrl:string;sourceName:string;sourcePublishedAt?:string;confidence:number;preorderStarted?:boolean;coverImageUrl?:string;
+ sourceUrl:string;sourceName:string;sourceType?:string;sourcePublishedAt?:string;confidence:number;preorderStarted?:boolean;coverImageUrl?:string;
+ isOfficial?:boolean;originalExcerpt?:string;origin?:"USER_SUBMISSION"|"NIGHTLY_SCAN"|"SEARCH_FALLBACK";submissionId?:string;
 };
 export interface ReleaseSourceProvider{name:string;trusted:boolean;discover(input:{query?:string;from:Date;to:Date;signal:AbortSignal}):Promise<DiscoveredRelease[]>}
 export interface StoredCandidate extends DiscoveredRelease{id:string;status:"DISCOVERED"|"VERIFIED"|"REJECTED"|"NEEDS_REVIEW";conflictReason?:string|null;evidence?:DiscoveredRelease[]}
@@ -37,7 +38,7 @@ export class JsonFeedProvider implements ReleaseSourceProvider{
 }
 
 export class MusicBrainzProvider implements ReleaseSourceProvider{
- name="MusicBrainz";trusted=true;
+ name="MusicBrainz";trusted=false;
  async discover({query,from,to,signal}:{query?:string;from:Date;to:Date;signal:AbortSignal}){
   if(!query)return[];
   await musicBrainzRateLimit();
@@ -54,7 +55,7 @@ export class MusicBrainzProvider implements ReleaseSourceProvider{
   return (Array.isArray(body["release-groups"])?body["release-groups"]:[]).flatMap((row:any)=>{
    const date=new Date(`${row["first-release-date"]||""}T00:00:00Z`);const releaseType=typeMap[row["primary-type"]]||"";
    if(!releaseType||!date.getTime()||date<from||date>to)return[];
-   return[{artistName:artist.name,artistAliases:artist.aliases,albumName:String(row.title),releaseDate:date.toISOString().slice(0,10),releaseType,sourceUrl:`https://musicbrainz.org/release-group/${row.id}`,sourceName:this.name,confidence:Math.min(.95,Number(row.score||80)/100),coverImageUrl:`https://coverartarchive.org/release-group/${row.id}/front-500`}];
+   return[{artistName:artist.name,artistAliases:artist.aliases,albumName:String(row.title),releaseDate:date.toISOString().slice(0,10),releaseType,sourceUrl:`https://musicbrainz.org/release-group/${row.id}`,sourceName:this.name,sourceType:"MUSIC_DATABASE",confidence:Math.min(.95,Number(row.score||80)/100),coverImageUrl:`https://coverartarchive.org/release-group/${row.id}/front-500`,isOfficial:false}];
   });
  }
 }
@@ -86,11 +87,10 @@ export class ReleaseDiscoveryService{
   const candidates:StoredCandidate[]=[];
   for(const items of groups.values()){
    const first=items[0].row;const duplicate=await this.repository.findAlbum([first.artistName,...first.artistAliases],first.albumName);if(duplicate)continue;
-   const dates=new Set(items.map(item=>dateKey(item.row.releaseDate)));const trusted=new Set(items.filter(item=>item.provider.trusted&&item.row.confidence>=.9).map(item=>{try{return new URL(item.row.sourceUrl).hostname.replace(/^www\./,"")}catch{return ""}}).filter(Boolean));
-   const status:StoredCandidate["status"]=dates.size>1?"NEEDS_REVIEW":trusted.size>=2?"VERIFIED":"DISCOVERED";
-   const candidate=await this.repository.saveCandidate(first,status,items.map(item=>item.row),dates.size>1?"RELEASE_DATE_CONFLICT":undefined);
+   const dates=new Set(items.map(item=>dateKey(item.row.releaseDate)));const hasOfficial=items.some(item=>(item.row.isOfficial??item.provider.trusted)&&item.row.confidence>=.8);
+   const status:StoredCandidate["status"]=dates.size>1?"DISCOVERED":hasOfficial?"NEEDS_REVIEW":"DISCOVERED";
+   const candidate=await this.repository.saveCandidate({...first,isOfficial:first.isOfficial??items[0].provider.trusted},status,items.map(item=>({...item.row,isOfficial:item.row.isOfficial??item.provider.trusted})),dates.size>1?"RELEASE_DATE_CONFLICT":hasOfficial?undefined:"OFFICIAL_SOURCE_REQUIRED");
    recordServerEvent("release_candidate_found",{status:candidate.status,sourceCount:items.length});
-   if(candidate.status==="VERIFIED"){await this.repository.verifyCandidate(candidate);recordServerEvent("release_candidate_verified",{candidateId:candidate.id})}
    if(candidate.status!=="REJECTED")candidates.push(candidate);
   }
   return{candidates,allProvidersFailed:settled.length>0&&settled.every(result=>result.status==="rejected")};
@@ -107,14 +107,17 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository{
   if(previous.some(row=>row.releaseDate.toISOString().slice(0,10)!==release.releaseDate.slice(0,10))){status="NEEDS_REVIEW";conflictReason="RELEASE_DATE_CONFLICT";await prisma.releaseCandidate.updateMany({where:{id:{in:previous.filter(row=>row.status!=="VERIFIED"&&row.status!=="REJECTED").map(row=>row.id)}},data:{status:"NEEDS_REVIEW",conflictReason}})}
   const rejected=previous.find(row=>row.status==="REJECTED");
   if(rejected)return{...release,id:rejected.id,status:"REJECTED" as const,conflictReason:rejected.conflictReason,evidence};
-  const date=new Date(`${release.releaseDate.slice(0,10)}T00:00:00Z`);const row=await prisma.releaseCandidate.upsert({where:{normalizedArtist_normalizedAlbum_releaseDate_sourceUrl:{normalizedArtist:normalizeAlias(release.artistName),normalizedAlbum:normalizeAlias(release.albumName),releaseDate:date,sourceUrl:release.sourceUrl}},update:{status:status as ReleaseCandidateStatus,evidence:JSON.stringify(evidence),conflictReason,coverImageUrl:release.coverImageUrl},create:{artistName:release.artistName,artistAliases:JSON.stringify(release.artistAliases),albumName:release.albumName,normalizedArtist:normalizeAlias(release.artistName),normalizedAlbum:normalizeAlias(release.albumName),releaseDate:date,releaseType:release.releaseType,preorderStarted:release.preorderStarted,sourceName:release.sourceName,sourceUrl:release.sourceUrl,coverImageUrl:release.coverImageUrl,sourcePublishedAt:release.sourcePublishedAt?new Date(release.sourcePublishedAt):null,confidence:release.confidence,evidence:JSON.stringify(evidence),status:status as ReleaseCandidateStatus,conflictReason}});
+  const date=new Date(`${release.releaseDate.slice(0,10)}T00:00:00Z`);const normalizedArtist=normalizeAlias(release.artistName),normalizedAlbum=normalizeAlias(release.albumName);const existing=await prisma.releaseCandidate.findFirst({where:{normalizedArtist,normalizedAlbum,releaseDate:date,status:{not:"REJECTED"}}});
+  const confirmed=Boolean(release.isOfficial)&&!conflictReason;const missing=[!release.coverImageUrl&&"cover",!release.preorderStarted&&"preorder","versions","track_list","price","purchase_channels","pob"].filter(Boolean)as string[];
+  const row=existing?await prisma.releaseCandidate.update({where:{id:existing.id},data:{artistAliases:JSON.stringify(Array.from(new Set([...JSON.parse(existing.artistAliases),...release.artistAliases]))),evidence:JSON.stringify(evidence),sourceName:release.sourceName,sourceUrl:release.sourceUrl,sourcePublishedAt:release.sourcePublishedAt?new Date(release.sourcePublishedAt):existing.sourcePublishedAt,confidence:Math.max(existing.confidence,release.confidence),coverImageUrl:release.coverImageUrl||existing.coverImageUrl,status:(confirmed?"NEEDS_REVIEW":existing.status)as ReleaseCandidateStatus,verificationStatus:confirmed?"CONFIRMED":"PENDING",conflictReason,failureReason:conflictReason,missingFields:JSON.stringify(missing),origin:release.origin||existing.origin,submissionId:release.submissionId||existing.submissionId}}):await prisma.releaseCandidate.create({data:{artistName:release.artistName,artistAliases:JSON.stringify(release.artistAliases),albumName:release.albumName,normalizedArtist,normalizedAlbum,releaseDate:date,releaseType:release.releaseType,preorderStarted:release.preorderStarted,sourceName:release.sourceName,sourceUrl:release.sourceUrl,coverImageUrl:release.coverImageUrl,sourcePublishedAt:release.sourcePublishedAt?new Date(release.sourcePublishedAt):null,confidence:release.confidence,evidence:JSON.stringify(evidence),status:status as ReleaseCandidateStatus,verificationStatus:confirmed?"CONFIRMED":"PENDING",origin:release.origin||"NIGHTLY_SCAN",submissionId:release.submissionId,missingFields:JSON.stringify(missing),conflictReason,failureReason:conflictReason}});
+  for(const item of evidence)await prisma.releaseEvidence.upsert({where:{candidateId_sourceUrl:{candidateId:row.id,sourceUrl:item.sourceUrl}},update:{sourceName:item.sourceName,sourceType:item.sourceType||"PUBLIC_SOURCE",originalExcerpt:item.originalExcerpt,sourcePublishedAt:item.sourcePublishedAt?new Date(item.sourcePublishedAt):null,isOfficial:Boolean(item.isOfficial)},create:{candidateId:row.id,sourceName:item.sourceName,sourceType:item.sourceType||"PUBLIC_SOURCE",sourceUrl:item.sourceUrl,originalExcerpt:item.originalExcerpt,sourcePublishedAt:item.sourcePublishedAt?new Date(item.sourcePublishedAt):null,isOfficial:Boolean(item.isOfficial)}});
   return{...release,id:row.id,status:row.status,conflictReason:row.conflictReason,evidence};
  }
  async verifyCandidate(candidate:StoredCandidate){
   return prisma.$transaction(async tx=>{
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(824713)`;
   const persisted=await tx.releaseCandidate.findUniqueOrThrow({where:{id:candidate.id}});
-  if(persisted.status==="REJECTED")throw new Error("Rejected candidate");
+  if(persisted.status==="REJECTED"||persisted.verificationStatus!=="CONFIRMED")throw new Error("Candidate is not confirmed");
   if(persisted.verifiedAlbumId)return{albumId:persisted.verifiedAlbumId};
   const aliases=[candidate.artistName,...candidate.artistAliases];const normalized=aliases.map(normalizeAlias);
   const matches=await tx.artist.findMany({where:{OR:[{name:{in:aliases,mode:"insensitive"}},{aliases:{some:{normalizedAlias:{in:normalized}}}}]}});
@@ -126,7 +129,7 @@ export class PrismaDiscoveryRepository implements DiscoveryRepository{
   if(existing&&existing.releaseDate.toISOString().slice(0,10)!==candidate.releaseDate.slice(0,10))throw new Error("Release date conflict");
   const albumId=existing?.id||`${artist.id}-${normalizeAlias(candidate.albumName)}`.slice(0,160);
   await tx.album.upsert({where:{id:albumId},update:{isDemo:false,coverImageUrl:candidate.coverImageUrl},create:{id:albumId,title:candidate.albumName,releaseDate:new Date(`${candidate.releaseDate.slice(0,10)}T00:00:00Z`),artistId:artist.id,isDemo:false,coverImageUrl:candidate.coverImageUrl}});
-  await tx.releaseCandidate.update({where:{id:candidate.id},data:{status:ReleaseCandidateStatus.VERIFIED,verifiedAlbumId:albumId}});
+  await tx.releaseCandidate.update({where:{id:candidate.id},data:{status:ReleaseCandidateStatus.VERIFIED,verifiedAlbumId:albumId,reviewedAt:new Date()}});
   return{albumId};
   }).then(result=>{invalidateCatalogCaches();return result});
  }

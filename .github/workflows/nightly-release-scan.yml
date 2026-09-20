@@ -1,0 +1,17 @@
+name: Nightly release scan
+on:
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      DISCOVERY_CRON_SECRET: ${{ secrets.DISCOVERY_CRON_SECRET }}
+    steps:
+      - name: Run 23:00 Asia/Shanghai scan
+        if: env.DISCOVERY_CRON_SECRET != ''
+        run: |
+          curl --fail --show-error --silent --retry 2 \
+            -H "Authorization: Bearer $DISCOVERY_CRON_SECRET" \
+            https://www.myarea.website/api/discovery/run

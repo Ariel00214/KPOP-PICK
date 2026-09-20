@@ -1,4 +1,4 @@
-import{PrismaClient,OfferStatus,ArtistAliasType}from"@prisma/client";import{findOfficialAlbumArtwork}from"../lib/artwork";
+import{PrismaClient,OfferStatus,ArtistAliasType}from"@prisma/client";import{findOfficialAlbumArtwork}from"../lib/artwork";import{parseOfficialSourcesEnv}from"../lib/release-verification";
 const db=new PrismaClient();
 async function main(){
  const source=await db.source.upsert({where:{id:"source-weverse-official"},update:{url:"https://shop.weverse.io/"},create:{id:"source-weverse-official",name:"Weverse Shop 官方商品页",type:"OFFICIAL_STORE",url:"https://shop.weverse.io/"}});
@@ -23,6 +23,7 @@ async function main(){
  for(const[alias,language,aliasType]of aliases)await db.artistAlias.upsert({where:{artistId_normalizedAlias:{artistId:yesung.id,normalizedAlias:alias.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu,"")}},update:{alias,language,aliasType},create:{artistId:yesung.id,alias,language,aliasType,normalizedAlias:alias.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu,"")}});
  const missingArtwork=await db.album.findMany({where:{coverImageUrl:null},include:{artist:true,group:true}});
  for(const album of missingArtwork){const artist=album.group?.name||album.artist?.name;if(!artist)continue;const coverImageUrl=await findOfficialAlbumArtwork(artist,album.title);if(coverImageUrl)await db.album.update({where:{id:album.id},data:{coverImageUrl}})}
+ for(const source of parseOfficialSourcesEnv()){const artistName=typeof source.artistName==="string"?source.artistName:"";const artist=artistName?await db.artist.findFirst({where:{OR:[{name:{equals:artistName,mode:"insensitive"}},{aliases:{some:{normalizedAlias:artistName.normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu,"")}}}]}}):null;await db.officialSource.upsert({where:{sourceUrl:source.sourceUrl},update:{sourceName:source.sourceName,sourceType:source.sourceType,artistId:artist?.id,active:true},create:{sourceUrl:source.sourceUrl,sourceName:source.sourceName,sourceType:source.sourceType,artistId:artist?.id,active:true}})}
  console.log(`Catalog ready: ${entries.length} verified official products.`)
 }
 main().finally(()=>db.$disconnect());

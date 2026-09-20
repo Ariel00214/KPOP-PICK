@@ -14,7 +14,8 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS!=="true")("PostgreSQL discovery i
   cache.set("search:yesung",[],60_000);
   const fixture:DiscoveredRelease={artistName:"YESUNG",artistAliases:aliases,albumName:"Where We Are",releaseDate:"2026-10-06",releaseType:"ALBUM",sourceUrl:"https://fixture-a.example/the-2nd-album",sourceName:"The 2nd Album announcement fixture",confidence:1};
   const service=new ReleaseDiscoveryService([{name:"Fixture A",trusted:true,discover:async()=>[fixture]}],new PrismaDiscoveryRepository());
-  const found=await service.discover("YESUNG",new Date("2026-09-19"));expect(found.candidates[0].status).toBe("DISCOVERED");
+  const found=await service.discover("YESUNG",new Date("2026-09-19"));expect(found.candidates[0].status).toBe("NEEDS_REVIEW");expect(await prisma.album.count({where:{artistId:artist.id}})).toBe(0);expect(await prisma.releaseEvidence.count({where:{candidateId:found.candidates[0].id,isOfficial:true}})).toBe(1);
+  const same=await new PrismaDiscoveryRepository().saveCandidate({...fixture,sourceUrl:"https://fixture-b.example/the-2nd-album",isOfficial:true,origin:"USER_SUBMISSION"},"NEEDS_REVIEW",[{...fixture,sourceUrl:"https://fixture-b.example/the-2nd-album",isOfficial:true}]);expect(same.id).toBe(found.candidates[0].id);expect(await prisma.releaseEvidence.count({where:{candidateId:same.id}})).toBe(2);
   const verified=await service.verify(found.candidates[0]);expect(cache.has("search:yesung")).toBe(false);
   for(const alias of aliases){const albums=await getAlbums(alias,true);expect(albums[0].id).toBe(verified.albumId);expect(albums[0].offers).toEqual([])}
   const again=await service.verify(found.candidates[0]);expect(again.albumId).toBe(verified.albumId);expect(await prisma.album.count({where:{artistId:artist.id}})).toBe(1);

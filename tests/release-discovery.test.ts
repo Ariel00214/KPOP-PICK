@@ -25,7 +25,7 @@ describe("release discovery",()=>{
   expect(await repo.findAlbum(["YESUNG"],"Where We Are")).toBeNull();
   const service=new ReleaseDiscoveryService([new Provider("Official A",[fixture]),new Provider("Official B",[fixture])],repo);
   const result=await service.discover("金钟云",new Date("2026-09-19T00:00:00Z"));
-  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].status).toBe("VERIFIED");expect(repo.verified).toBe(1);
+  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].status).toBe("NEEDS_REVIEW");expect(repo.verified).toBe(0);await service.verify(result.candidates[0]);expect(repo.verified).toBe(1);
   expect(cache.has("search:yesung")).toBe(false);
   expect(await repo.findAlbum(["YESUNG"],"Where We Are")).toEqual({id:"yesung-where-we-are-2026-10-06"});
  });
@@ -33,7 +33,7 @@ describe("release discovery",()=>{
  it("reports all external providers unavailable",async()=>{const repo=new Repo();const failed:ReleaseSourceProvider={name:"down",trusted:true,discover:async()=>{throw new Error("down")}};const result=await new ReleaseDiscoveryService([failed],repo).discover("YESUNG",new Date("2026-09-19"));expect(result.candidates).toEqual([]);expect(result.allProvidersFailed).toBe(true)});
  it("ignores an alias mismatch",async()=>{const result=await new ReleaseDiscoveryService([new Provider("Official A",[fixture])],new Repo()).discover("TAEMIN",new Date("2026-09-19"));expect(result.candidates).toEqual([])});
  it("does not add a duplicate album",async()=>{const repo=new Repo();repo.albums.set("yesung:whereweare",{id:"existing"});const result=await new ReleaseDiscoveryService([new Provider("Official A",[fixture])],repo).discover("YESUNG",new Date("2026-09-19"));expect(result.candidates).toEqual([])});
- it("routes release date conflicts to review",async()=>{const conflict={...fixture,releaseDate:"2026-10-07"};const result=await new ReleaseDiscoveryService([new Provider("Official A",[fixture]),new Provider("Official B",[conflict])],new Repo()).discover("예성",new Date("2026-09-19"));expect(result.candidates[0].status).toBe("NEEDS_REVIEW");expect(result.candidates[0].conflictReason).toBe("RELEASE_DATE_CONFLICT")});
+ it("keeps release date conflicts pending and unpublished",async()=>{const conflict={...fixture,releaseDate:"2026-10-07"};const repo=new Repo();const result=await new ReleaseDiscoveryService([new Provider("Official A",[fixture]),new Provider("Official B",[conflict])],repo).discover("예성",new Date("2026-09-19"));expect(result.candidates[0].status).toBe("DISCOVERED");expect(result.candidates[0].conflictReason).toBe("RELEASE_DATE_CONFLICT");expect(repo.verified).toBe(0)});
  it("times out a hanging provider without inventing a release",async()=>{const hanging:ReleaseSourceProvider={name:"slow",trusted:true,discover:({signal})=>new Promise((_,reject)=>signal.addEventListener("abort",()=>reject(new Error("timeout"))))};const result=await new ReleaseDiscoveryService([hanging],new Repo(),5).discover("YESUNG",new Date("2026-09-19"));expect(result.candidates).toEqual([]);expect(result.allProvidersFailed).toBe(true)});
  it("actively removes stale catalog caches",()=>{cache.set("search:yesung",1,60_000);cache.set("artist:yesung",1,60_000);cache.set("album:x",1,60_000);cache.set("comeback:x",1,60_000);cache.set("albums:",1,60_000);invalidateCatalogCaches();expect(["search:yesung","artist:yesung","album:x","comeback:x","albums:"].every(key=>!cache.has(key))).toBe(true)});
 });

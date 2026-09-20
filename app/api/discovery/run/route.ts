@@ -1,3 +1,4 @@
-import{NextResponse}from"next/server";import{defaultDiscoveryService}from"@/lib/release-discovery";
-export const runtime="nodejs";
-export async function POST(req:Request){const secret=process.env.DISCOVERY_CRON_SECRET;if(!secret||req.headers.get("authorization")!==`Bearer ${secret}`)return NextResponse.json({error:"UNAUTHORIZED"},{status:401});const result=await defaultDiscoveryService().discover();return NextResponse.json({candidateCount:result.candidates.length,allProvidersFailed:result.allProvidersFailed})}
+import{NextResponse}from"next/server";import{ReleaseVerificationService}from"@/lib/release-verification";import{prisma}from"@/lib/prisma";
+export const runtime="nodejs";export const dynamic="force-dynamic";
+async function run(req:Request){const secret=process.env.DISCOVERY_CRON_SECRET;if(!secret||req.headers.get("authorization")!==`Bearer ${secret}`)return NextResponse.json({error:"UNAUTHORIZED"},{status:401});try{const result=await new ReleaseVerificationService().nightlyScan();await prisma.systemMetric.create({data:{metricName:"nightly_release_scan_completed",value:result.candidates,unit:"candidates",metadata:JSON.stringify({scanned:result.scanned})}});return NextResponse.json({ok:true,...result})}catch{return NextResponse.json({ok:false,error:"SCAN_FAILED"},{status:503})}}
+export async function POST(req:Request){return run(req)}export async function GET(req:Request){return run(req)}

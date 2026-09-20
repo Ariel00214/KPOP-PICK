@@ -92,6 +92,21 @@ model Artist {
   nameZh String?
   albums Album[]
   aliases ArtistAlias[]
+  officialSources OfficialSource[]
+}
+
+model OfficialSource {
+  id String @id @default(cuid())
+  artistId String?
+  sourceType String
+  sourceUrl String @unique
+  sourceName String
+  active Boolean @default(true)
+  lastScannedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  artist Artist? @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  @@index([active, lastScannedAt])
 }
 
 model ArtistAlias {
@@ -220,6 +235,7 @@ model Submission {
   extractedData String?
   status SubmissionStatus @default(DRAFT)
   duplicateOfId String?
+  verificationError String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -274,9 +290,32 @@ model ReleaseCandidate {
   status ReleaseCandidateStatus @default(DISCOVERED)
   conflictReason String?
   verifiedAlbumId String?
+  verificationStatus String @default("PENDING")
+  origin String @default("NIGHTLY_SCAN")
+  missingFields String @default("[]")
+  failureReason String?
+  submissionId String?
+  adminNote String?
+  reviewedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  evidenceItems ReleaseEvidence[]
   @@unique([normalizedArtist, normalizedAlbum, releaseDate, sourceUrl])
   @@index([normalizedArtist, normalizedAlbum])
   @@index([status, releaseDate])
+}
+
+model ReleaseEvidence {
+  id String @id @default(cuid())
+  candidateId String
+  sourceName String
+  sourceType String
+  sourceUrl String
+  originalExcerpt String?
+  sourcePublishedAt DateTime?
+  collectedAt DateTime @default(now())
+  isOfficial Boolean @default(false)
+  candidate ReleaseCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  @@unique([candidateId, sourceUrl])
+  @@index([candidateId, isOfficial])
 }
