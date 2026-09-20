@@ -1,0 +1,16 @@
+name = "kpop-monitor-worker"
+main = "src/index.ts"
+compatibility_date = "2026-09-20"
+workers_dev = true
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[kv_namespaces]]
+binding = "KPOP_MONITOR_STATE"
+id = "b66270fd800b48aca030e1be1394336a"
+preview_id = "b66270fd800b48aca030e1be1394336a"
+
+[vars]
+MYAREA_BASE_URL = "https://www.myarea.website"
+KPOP_CALENDAR_URL = "https://kpopcal.com/api/events.json"

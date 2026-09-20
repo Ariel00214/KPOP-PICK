@@ -1,6 +1,3 @@
-export async function register(){
- if(process.env.NEXT_RUNTIME==="nodejs"){
-  const{startReleaseDiscoveryScheduler}=await import("./lib/release-scheduler");
-  startReleaseDiscoveryScheduler();
- }
-}
+// Scheduling runs in the single Cloudflare Worker. Keeping the application
+// process free of timers avoids duplicate scans after Render restarts/scales.
+export async function register(){}

@@ -13,7 +13,7 @@
 - 小卡列表与类型筛选
 - “AI 帮我选”支持自由文本需求理解，自动提取艺人、专辑、成员、预算、随机接受度、渠道和购买优先级，再生成最多 3 个带解释的方案；无 AI 密钥时自动使用 Rules + Database 结果
 - K-Pop Calendar 结构化同步、购买 Offer 统一入库、可信来源自动更新与异常队列
-- 用户可从专辑页提交购买链接、文字或截图；changedetection.io 回调复用同一 Offer Pipeline
+- 用户可从专辑页提交购买链接、文字或截图；Cloudflare Worker 变化回调复用同一 Offer Pipeline
 - 游客本地收藏、登录用户数据库收藏、匿名 Analytics、简单管理员认证和 MVP 数据看板
 - 内存 TTL Cache、关键词知识检索、AI Provider 接口、Fallback
 - Prisma PostgreSQL Schema、正式 Migration、幂等官方商品 Seed 和 Vitest 测试
@@ -40,7 +40,7 @@ Next.js App Router
 | AI | 非结构化信息理解与复杂推荐 | 普通浏览、搜索、计算 |
 | Analytics | 匿名行为与系统运行指标 | 收集姓名、手机、地址等无关隐私 |
 
-回归信息通过结构化日历同步；购买信息统一进入 Offer Pipeline。changedetection 只负责发现页面变化，主站负责提取、去重、可信度判断和发布。可信来源的正常 Offer 自动发布，未知来源、异常价格、低置信度和无法匹配专辑的数据进入 `/admin/offers`，管理员只处理例外。监控 Worker 独立放在 VPS，宕机不影响主站已有数据。
+回归信息通过结构化日历同步；购买信息统一进入 Offer Pipeline。单一 Cloudflare Worker 每小时唤醒，只检查已到 `nextCheckAt` 的公开来源并保存 ETag、Last-Modified 与业务字段 Hash；无变化不调用主站或 AI。主站负责提取、去重、可信度判断和发布。可信来源的正常 Offer 自动发布，未知来源、异常价格、低置信度和无法匹配专辑的数据进入 `/admin/offers`，管理员只处理例外。Worker 宕机不影响主站已有数据。
 
 ## 本地运行
 
@@ -78,7 +78,7 @@ npm run dev
 | `KPOP_CALENDAR_URL` | 生产必填 | K-Pop Calendar 的结构化 JSON Feed URL |
 | `KPOP_CALENDAR_TIMEOUT_MS` | 否 | 日历请求超时，默认 8000ms |
 | `CALENDAR_CRON_SECRET` | 生产必填 | `/api/calendar/sync` 的 Bearer 密钥，可复用 discovery secret |
-| `CHANGEDETECTION_WEBHOOK_SECRET` | 生产必填 | changedetection 回调签名密钥 |
+| `MYAREA_WEBHOOK_SECRET` | 生产必填 | Cloudflare Worker 调用主站的签名密钥 |
 | `TRUSTED_OFFER_HOSTS` | 否 | 额外可信购买域名，英文逗号分隔 |
 
 回归发现仅在后台定时任务或搜索零结果时启动。`RELEASE_DISCOVERY_FEED_URL` 应返回 JSON 数组，每项包含 `artistName`、`artistAliases`、`albumName`、`releaseDate`、`releaseType`、`sourceUrl`、`sourceName`、`sourcePublishedAt` 与 `confidence`。单一来源只进入核实队列；两个独立可信 Provider 的发行日期一致时才自动核实入库。

@@ -1,0 +1,20 @@
+export type SourceStatus="active"|"browser_required"|"manual_assisted"|"not_configured"|"unavailable";
+export type SourceConfig={sourceId:string;sourceType:"calendar"|"store";url:string;enabled:boolean;checkIntervalHours:number;fetchMode:"fetch"|"browser";status:SourceStatus};
+export type SourceState={lastHash?:string;lastCheckedAt?:string;lastSuccessfulAt?:string;nextCheckAt?:string;failureCount?:number;etag?:string;lastModified?:string;lastProductIds?:string[];sourceStatus?:SourceStatus};
+export type BusinessItem={productId:string;title:string;artist?:string;album?:string;version?:string;price?:number;currency?:string;benefit?:string;stock?:string;purchaseUrl:string};
+
+export const SOURCES:SourceConfig[]=[
+ {sourceId:"kpop-calendar",sourceType:"calendar",url:"https://kpopcal.com/api/events.json",enabled:true,checkIntervalHours:6,fetchMode:"fetch",status:"active"},
+ {sourceId:"ktown4u",sourceType:"store",url:"https://www.ktown4u.com/goodsList?grp_no=107931&productType=newgoods&mainReleaseType=new",enabled:false,checkIntervalHours:6,fetchMode:"browser",status:"browser_required"},
+ {sourceId:"weverse-shop",sourceType:"store",url:"https://shop.weverse.io/en/home",enabled:false,checkIntervalHours:6,fetchMode:"browser",status:"browser_required"},
+ {sourceId:"domestic-store",sourceType:"store",url:"",enabled:false,checkIntervalHours:6,fetchMode:"fetch",status:"not_configured"}
+];
+
+export function isDue(state:SourceState|undefined,now=new Date()){return !state?.nextCheckAt||new Date(state.nextCheckAt).getTime()<=now.getTime()}
+export function nextAfter(hours:number,now=new Date()){return new Date(now.getTime()+hours*3_600_000).toISOString()}
+export function serverBackoffHours(failures:number){return[1,3,6,24][Math.min(Math.max(failures-1,0),3)]}
+export function retryAfterDate(value:string|null,now=new Date()){if(!value)return nextAfter(1,now);const seconds=Number(value);if(Number.isFinite(seconds))return new Date(now.getTime()+Math.max(seconds,60)*1000).toISOString();const date=new Date(value);return Number.isNaN(date.getTime())?nextAfter(1,now):date.toISOString()}
+export function classifyChange(previous:BusinessItem[],current:BusinessItem[]){const old=new Map(previous.map(v=>[v.productId,v])),changes:Array<{changeType:string;item:BusinessItem}>=[];for(const item of current){const before=old.get(item.productId);if(!before)changes.push({changeType:"new_product",item});else if(before.price!==item.price||before.currency!==item.currency)changes.push({changeType:"price_changed",item});else if(before.benefit!==item.benefit)changes.push({changeType:"benefit_changed",item});else if(before.stock!==item.stock)changes.push({changeType:"stock_changed",item})}return changes}
+export async function businessHash(items:BusinessItem[]){const normalized=items.map(v=>({productId:v.productId,version:v.version||"",price:v.price??null,currency:v.currency||"",benefit:v.benefit||"",stock:v.stock||""})).sort((a,b)=>a.productId.localeCompare(b.productId));const bytes=new TextEncoder().encode(JSON.stringify(normalized));return[...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map(v=>v.toString(16).padStart(2,"0")).join("")}
+
+export function extractJsonLdProducts(html:string,baseUrl:string):BusinessItem[]{const products:BusinessItem[]=[];for(const match of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{const parsed=JSON.parse(match[1]);const rows=Array.isArray(parsed)?parsed:[parsed];for(const row of rows){if(!row||!(row["@type"]==="Product"||row.productID||row.sku))continue;const offer=Array.isArray(row.offers)?row.offers[0]:row.offers||{};const url=String(row.url||offer.url||baseUrl);products.push({productId:String(row.productID||row.sku||url),title:String(row.name||""),price:Number(offer.price)||undefined,currency:offer.priceCurrency?String(offer.priceCurrency):undefined,stock:offer.availability?String(offer.availability).split("/").pop():undefined,purchaseUrl:new URL(url,baseUrl).toString()})}}catch{continue}}return products.filter(v=>v.title&&v.productId)}
