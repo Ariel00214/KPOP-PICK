@@ -1,0 +1,3 @@
+import {NextResponse} from "next/server";import {KpopCalendarService} from "@/lib/kpop-calendar";
+export const runtime="nodejs";export const dynamic="force-dynamic";
+export async function POST(req:Request){const secret=process.env.CALENDAR_CRON_SECRET||process.env.DISCOVERY_CRON_SECRET;if(!secret||req.headers.get("authorization")!==`Bearer ${secret}`)return NextResponse.json({error:"UNAUTHORIZED"},{status:401});try{return NextResponse.json({ok:true,...await new KpopCalendarService().sync()})}catch(error){return NextResponse.json({ok:false,error:error instanceof Error?error.message:"SYNC_FAILED"},{status:503})}}
