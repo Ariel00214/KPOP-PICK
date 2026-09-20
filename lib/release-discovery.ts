@@ -41,18 +41,31 @@ export class MusicBrainzProvider implements ReleaseSourceProvider{
  async discover({query,from,to,signal}:{query?:string;from:Date;to:Date;signal:AbortSignal}){
   if(!query)return[];
   await musicBrainzRateLimit();
-  const term=`artist:${JSON.stringify(query)} AND firstreleasedate:[${from.toISOString().slice(0,10)} TO ${to.toISOString().slice(0,10)}]`;
+  const artistUrl=`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(`artist:${JSON.stringify(query)}`)}&fmt=json&limit=5`;
+  const artistResponse=await fetch(artistUrl,{signal,headers:musicBrainzHeaders()});
+  if(!artistResponse.ok)throw new Error(`MusicBrainz artist ${artistResponse.status}`);
+  const artist=selectExactMusicBrainzArtist((await artistResponse.json()).artists,query);
+  if(!artist)return[];
+  await musicBrainzRateLimit();
+  const term=`arid:${artist.id} AND firstreleasedate:[${from.toISOString().slice(0,10)} TO ${to.toISOString().slice(0,10)}]`;
   const url=`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(term)}&fmt=json&limit=15`;
-  const response=await fetch(url,{signal,headers:{accept:"application/json","user-agent":`KPOPPick/0.1 (${process.env.SUPPORT_EMAIL||"https://www.myarea.website"})`}});
+  const response=await fetch(url,{signal,headers:musicBrainzHeaders()});
   if(!response.ok)throw new Error(`MusicBrainz ${response.status}`);const body=await response.json();
   return (Array.isArray(body["release-groups"])?body["release-groups"]:[]).flatMap((row:any)=>{
    const date=new Date(`${row["first-release-date"]||""}T00:00:00Z`);const releaseType=typeMap[row["primary-type"]]||"";
-   const credits=Array.isArray(row["artist-credit"])?row["artist-credit"]:[];const artistName=credits.map((c:any)=>c.name).filter(Boolean).join("");
-   if(!releaseType||!date.getTime()||date<from||date>to||!artistName)return[];
-   return[{artistName,artistAliases:[],albumName:String(row.title),releaseDate:date.toISOString().slice(0,10),releaseType,sourceUrl:`https://musicbrainz.org/release-group/${row.id}`,sourceName:this.name,confidence:Math.min(.95,Number(row.score||80)/100)}];
+   if(!releaseType||!date.getTime()||date<from||date>to)return[];
+   return[{artistName:artist.name,artistAliases:artist.aliases,albumName:String(row.title),releaseDate:date.toISOString().slice(0,10),releaseType,sourceUrl:`https://musicbrainz.org/release-group/${row.id}`,sourceName:this.name,confidence:Math.min(.95,Number(row.score||80)/100)}];
   });
  }
 }
+
+type MusicBrainzArtist={id:string;name:string;aliases:string[]};
+export function selectExactMusicBrainzArtist(input:unknown,query:string):MusicBrainzArtist|null{
+ if(!Array.isArray(input))return null;const normalized=normalizeAlias(query);
+ const matches=input.flatMap((row:any)=>{if(!row||typeof row.id!=="string"||typeof row.name!=="string")return[];const aliases=Array.isArray(row.aliases)?row.aliases.map((alias:any)=>typeof alias?.name==="string"?alias.name:"").filter(Boolean):[];const names=[row.name,typeof row["sort-name"]==="string"?row["sort-name"]:"",...aliases];if(!names.some(name=>normalizeAlias(name)===normalized))return[];return[{id:row.id,name:row.name,aliases:Array.from(new Set(names.filter(Boolean))),score:Number(row.score)||0}]});
+ matches.sort((a,b)=>b.score-a.score);const best=matches[0];return best?{id:best.id,name:best.name,aliases:best.aliases}:null;
+}
+function musicBrainzHeaders(){return{accept:"application/json","user-agent":`KPOPPick/0.1 (${process.env.SUPPORT_EMAIL||"https://www.myarea.website"})`}}
 
 let lastMusicBrainzRequest=0;let musicBrainzQueue=Promise.resolve();
 function musicBrainzRateLimit(){const turn=musicBrainzQueue.then(async()=>{const wait=Math.max(0,1000-(Date.now()-lastMusicBrainzRequest));if(wait)await new Promise(resolve=>setTimeout(resolve,wait));lastMusicBrainzRequest=Date.now()});musicBrainzQueue=turn.catch(()=>{});return turn}
