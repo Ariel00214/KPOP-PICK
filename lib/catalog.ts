@@ -19,7 +19,7 @@ export async function getAlbums(q="",strict=false):Promise<Album[]>{
   });
   if(!rows.length)return [];
   return rows.map(row=>{
-   const offers=row.versions.flatMap(version=>version.offers.map(offer=>({
+   const offers=row.versions.flatMap(version=>version.offers.filter(offer=>!["PENDING_EXCEPTION","IGNORED"].includes(offer.status)).map(offer=>({
     id:offer.id,channel:offer.channel.name,platform:offer.channel.platform,version:version.name,packageType:version.packageType,
     productPrice:offer.productPrice,internationalShipping:offer.internationalShipping,domesticShipping:offer.domesticShipping,
     serviceFee:offer.serviceFee,otherFee:offer.otherFee,discount:offer.discount,estimatedLandedPrice:offer.estimatedLandedPrice,
@@ -30,7 +30,7 @@ export async function getAlbums(q="",strict=false):Promise<Album[]>{
     sourceName:offer.source.name,lastVerifiedAt:offer.lastVerifiedAt?.toISOString()||offer.updatedAt.toISOString(),
    })));
    const prices=offers.filter(o=>o.status!=="SOLD_OUT"&&o.status!=="ENDED").map(o=>o.productPrice);
-   return {id:row.id,artist:row.group?.name||row.artist?.name||"Unknown",title:row.title,titleZh:"",releaseDate:row.releaseDate.toISOString().slice(0,10),cover:(row.group?.name||row.artist?.name||"?").slice(0,2).toUpperCase(),coverImageUrl:row.coverImageUrl,accent:row.coverColor,lowestPrice:prices.length?Math.min(...prices):null,channelCount:new Set(offers.map(o=>o.channel)).size,benefitCount:Math.max(0,...offers.map(o=>o.inclusions.length)),deadline:"",change:0,isDemo:row.isDemo,offers};
+   return {id:row.id,artist:row.group?.name||row.artist?.name||"Unknown",title:row.title,titleZh:"",releaseDate:row.releaseDate.toISOString().slice(0,10),cover:(row.group?.name||row.artist?.name||"?").slice(0,2).toUpperCase(),coverImageUrl:row.coverImageUrl,accent:row.coverColor,lowestPrice:prices.length?Math.min(...prices):null,channelCount:new Set(offers.map(o=>o.channel)).size,benefitCount:Math.max(0,...offers.map(o=>o.inclusions.length)),deadline:"",change:0,isDemo:row.isDemo,sourceName:row.sourceName,sourceUrl:row.sourceUrl,sourceUpdatedAt:row.sourceUpdatedAt?.toISOString()||null,offers};
   });
  }catch(error){if(strict)throw error;return fallback.filter(a=>`${a.artist} ${a.title}`.toLowerCase().includes(q.toLowerCase())).map(freshness)}
 }
