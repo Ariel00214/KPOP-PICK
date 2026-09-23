@@ -140,6 +140,11 @@ model Album {
   releaseDate DateTime
   coverColor String @default("#d8f4df")
   coverImageUrl String?
+  appleMusicId String? @unique
+  albumType String?
+  trackCount Int?
+  hanteoVerifiedAt DateTime?
+  hanteoSourceUrl String?
   isDemo Boolean @default(true)
   sourceName String?
   sourceUrl String?
@@ -198,6 +203,11 @@ model PurchaseOffer {
   albumVersionId String
   channelId String
   productPrice Float
+  fanbarPrice Float?
+  platformPrice Float?
+  offerSource String?
+  purchasePlatform String?
+  platformProductUrl String?
   internationalShipping Float?
   domesticShipping Float?
   serviceFee Float?

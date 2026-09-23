@@ -9,6 +9,7 @@ export interface Offer {
   shippingTime: string; deadline: string; memberSelectable: boolean; randomRule: string;
   inclusions: string[]; confidence: number; status: OfferStatus; url: string; currency: string;
   sourceName: string; lastVerifiedAt: string;
+  fanbarPrice?:number|null;platformPrice?:number|null;offerSource?:string|null;purchasePlatform?:string|null;platformProductUrl?:string|null;
 }
 
 export interface Album {

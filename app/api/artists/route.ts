@@ -1,0 +1,2 @@
+import{NextResponse}from"next/server";import{prisma}from"@/lib/prisma";
+export async function GET(){try{const rows=await prisma.artist.findMany({include:{aliases:{select:{alias:true}}},orderBy:{name:"asc"},take:1000});const data=rows.map(row=>({name:row.name,aliases:Array.from(new Set([row.name,row.nameZh||"",...row.aliases.map(a=>a.alias)].filter(Boolean)))}));return NextResponse.json({data})}catch{return NextResponse.json({data:[]})}}
